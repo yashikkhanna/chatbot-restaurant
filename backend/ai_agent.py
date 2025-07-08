@@ -15,7 +15,7 @@ if not GOOGLE_API_KEY:
 configure(api_key=GOOGLE_API_KEY)
 
 # Load the Gemini model
-intent_model = GenerativeModel("gemini-1.5-flash")
+intent_model = GenerativeModel("gemini-2.5-flash")
 
 def get_today_date():
     return datetime.today().strftime('%Y-%m-%d')
@@ -43,6 +43,7 @@ Rules:
 - Convert relative dates like "tomorrow", "this weekend", etc. using today's date as reference: {get_today_date()}.
 - Features should only include phrases explicitly mentioned in the user input. Do NOT add features that are not mentioned.
 - Ensure "romantic dinner" or similar phrases go into features (as a list), only if present in the input.
+- If the user mentions specific dishes (e.g., "noodles", "dal makhni", "pasta"), infer the cuisine (e.g., Chinese, North Indian, Italian) based on the dish name and populate the 'cuisine' field.
 - If features are multiple, return them as a list.
 - If something is missing, return null for that field.
 - Output must be a valid JSON object only. No preamble or explanation.
@@ -53,24 +54,32 @@ User input:
 """
     try:
         response = intent_model.generate_content(prompt)
-        text = response.text.strip()
-        # If output is empty or looks like an error, return '{}'
+        text = response.text()  # ✅ Use text() method
         if not text or text.lower().startswith("error:"):
             return '{}'
-        # Optional: Validate JSON here or just return string
-        # We'll parse in main code anyway
         return text
     except Exception as e:
-        # Log the error if you want
+        print("❌ Exception in Gemini call:", e)
         return '{}'
 
 
+if __name__ == "__main__":
+    print("🔍 Testing Gemini-based intent and entity extraction...\n")
+    while True:
+        user_input = input("👤 User: ")
+        if user_input.lower() in {"exit", "quit"}:
+            print("👋 Exiting test.")
+            break
 
-# Example usage
-# if __name__ == "__main__":
-#     while True:
-#         user_input = input("\nUser: ")
-#         if user_input.lower() in {"exit", "quit"}:
-#             break
-#         extracted = extract_intent_entities(user_input)
-#         print("\nExtracted Info:\n", extracted)
+        try:
+            extracted_raw = extract_intent_entities(user_input)
+            print("\n📦 Raw Gemini Output:\n", extracted_raw)
+
+            try:
+                parsed = json.loads(extracted_raw)
+                print("\n🧠 Parsed Extracted Info:\n", json.dumps(parsed, indent=2))
+            except json.JSONDecodeError as e:
+                print("❌ JSON parsing failed! Output was not valid JSON.")
+                print("🔧 Error:", str(e))
+        except Exception as e:
+            print("❌ Unexpected error during extraction:", str(e))
