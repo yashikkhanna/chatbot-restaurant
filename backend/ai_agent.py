@@ -15,7 +15,7 @@ if not GOOGLE_API_KEY:
 configure(api_key=GOOGLE_API_KEY)
 
 # Load the Gemini model
-intent_model = GenerativeModel("gemini-2.5-flash")
+intent_model = GenerativeModel("gemini-1.5-flash")
 
 def get_today_date():
     return datetime.today().strftime('%Y-%m-%d')
@@ -25,7 +25,7 @@ def extract_intent_entities(user_input):
 You are a smart assistant that extracts structured booking-related information from user messages.
 
 Extract the following:
-- intent: One of [greeting, booking, cancel, other]
+- intent: One of [greeting, booking, cancel, other, recommend]
 - entities (always include these fields, use null if not mentioned):
     - city (e.g., Delhi, Mumbai)
     - cuisine (e.g., North Indian, Italian)
@@ -53,8 +53,13 @@ User input:
 \"\"\"{user_input}\"\"\"
 """
     try:
+        from time import time
+        start_time = time()
         response = intent_model.generate_content(prompt)
-        text = response.text()  # ✅ Use text() method
+        end_time = time()
+        print(f"⏱️ Gemini response time: {round(end_time - start_time, 2)} seconds")
+
+        text = response.text
         if not text or text.lower().startswith("error:"):
             return '{}'
         return text

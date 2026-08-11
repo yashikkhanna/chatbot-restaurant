@@ -5,6 +5,7 @@ import os
 
 # Load environment variables from .env file
 load_dotenv()
+print("🔍 DB_HOST =", os.getenv("DB_HOST"))  
 
 # Database connection setup using env vars
 conn = psycopg2.connect(

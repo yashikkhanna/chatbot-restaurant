@@ -2,9 +2,14 @@ import psycopg2
 import json
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
-# Load environment variables from .env file
-load_dotenv()
+
+# Force load the correct .env inside backend/
+env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=env_path)
+
+print("🔍 DB_HOST =", os.getenv("DB_HOST"))
 
 # Debug prints — check if env vars loaded correctly
 print("DB_NAME:", os.getenv("DB_NAME"))

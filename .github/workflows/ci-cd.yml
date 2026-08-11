@@ -1,0 +1,69 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:14
+        env:
+          POSTGRES_DB: testdb
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpass
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+
+      - name: Install PostgreSQL Client
+        run: sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL
+        run: |
+          for i in {1..10}; do
+            if pg_isready -h localhost -p 5432; then break; fi
+            sleep 3
+          done
+
+      - name: Load Schema
+        run: |
+          psql -h localhost -U testuser -d testdb -f backend/db/init_schema.sql
+        env:
+          PGPASSWORD: testpass
+
+      - name: Install Python Dependencies
+        run: pip install -r backend/requirements.txt
+
+      - name: Run Backend Tests
+        run: pytest backend/tests/
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: testdb
+          DB_USER: testuser
+          DB_PASSWORD: testpass
+
+      - name: Build Backend Docker Image
+        run: docker build -t chatbot-backend ./backend
+
+      - name: Build Frontend Docker Image
+        run: docker build -t chatbot-frontend ./restaurant-chatbot-react

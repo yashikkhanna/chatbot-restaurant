@@ -136,7 +136,7 @@ export default function Chatbot() {
     }
 
     if (detectedIntent === "greeting") {
-      addMessage("👋 Hello! How can I assist you with your restaurant booking today?", "bot");
+      addMessage("👋 Hello! I can help you book a table, cancel a booking, or recommend restaurants. How can I assist you today?", "bot");
       return;
     }
 
@@ -222,6 +222,68 @@ export default function Chatbot() {
         }
       }
     }
+    if (intent === "recommend") {
+  const e = s.entities;
+
+  if (!e.city || !e.cuisine) {
+    if (!e.city) {
+      setState((prev) => ({ ...prev, pendingField: "city" }));
+      addMessage("🌆 Which city would you like a recommendation for?", "bot");
+      return;
+    }
+    if (!e.cuisine) {
+      setState((prev) => ({ ...prev, pendingField: "cuisine" }));
+      addMessage("🍽️ What type of cuisine are you looking for?", "bot");
+      return;
+    }
+  }
+
+  try {
+    addMessage("🔍 Fetching recommendations based on your preferences...", "bot");
+    const res = await fetch("http://127.0.0.1:8000/recommendations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_query: `${e.cuisine} food in ${e.city}`,
+        city: e.city,
+        cuisine: e.cuisine,
+      }),
+    });
+
+    const data = await res.json();
+
+    if (!data.recommendations || data.recommendations.length === 0) {
+      addMessage("😕 Sorry, I couldn't find any matching restaurants.", "bot");
+    } else {
+      data.recommendations.forEach((item, idx) => {
+        addMessage(
+          `${idx + 1}. ${item.name} (ID: ${item.id}) - ${item.city}\nCuisine: ${item.cuisines?.join(", ") || "N/A"}\nFeatures: ${item.features?.join(", ") || "None"}`,
+          "bot"
+        );
+      });
+      addMessage("🙌 Hope these help! Let me know if you'd like to book one of them.", "bot");
+    }
+
+    // Reset chatbot state after recommendation
+    setState({
+      intent: null,
+      entities: {},
+      pendingField: null,
+      awaitingSlot: false,
+      availableSlots: [],
+      recommendations: [],
+      recommendationsShown: false,
+      cancelBookingIdsShown: false,
+      awaitingOTP: false,
+      sentSlot: null,
+      otpPurpose: null,
+    });
+  } catch (err) {
+    console.error("❌ Recommendation fetch error:", err);
+    addMessage("⚠️ Error getting recommendations. Please try again.", "bot");
+  }
+  return;
+}
 
     if (intent === "cancel") {
       const e = s.entities;
