@@ -130,31 +130,61 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 # ========== Routes ==========
 
+
 @app.post("/intent", response_model=IntentResponse)
 def get_intent(data: IntentRequest):
-    raw_output = extract_intent_entities(data.user_input)
-    parsed = parse_entities(raw_output)
 
-    # Ensure both fields are returned properly
-    return IntentResponse(
-        intent=parsed.get("intent"),
-        entities=parsed.get("entities", {})
-    )
+    try:
+        raw_output = extract_intent_entities(data.user_input)
+        parsed = parse_entities(raw_output)
+
+        if not parsed:
+            raise HTTPException(
+                status_code=502,
+                detail="Could not extract intent from Gemini response."
+            )
+
+        return IntentResponse(
+            intent=parsed.get("intent", "other"),
+            entities=parsed.get("entities", {})
+        )
+
+    except HTTPException:
+        raise
+
+    except Exception as e:
+        print("[INTENT ERROR]", repr(e))
+
+        raise HTTPException(
+            status_code=502,
+            detail="Gemini intent extraction failed. Please try again."
+        )
 
 
 @app.post("/recommendations", response_model=RecommendationResponse)
 def get_recommendations(data: RecommendationRequest):
-    results = query_pinecone(data.user_query, city_filter=data.city, cuisine_filter=data.cuisine, top_k=3)
+    results = query_pinecone(
+        data.user_query,
+        city_filter=data.city,
+        cuisine_filter=data.cuisine,
+        top_k=3
+    )
+
     recs = []
+
     for res in results or []:
-        meta = res.get('metadata', {})
-        recs.append(RecommendationItem(
-            id=res.get("id"),
-            name=meta.get("name"),
-            city=meta.get("city"),
-            cuisines=meta.get("cuisines", []),
-            features=meta.get("features", [])
-        ))
+        meta = res.metadata or {}
+
+        recs.append(
+            RecommendationItem(
+                id=res.id,
+                name=meta.get("name"),
+                city=meta.get("city"),
+                cuisines=meta.get("cuisines", []),
+                features=meta.get("features", [])
+            )
+        )
+
     return {"recommendations": recs}
 
 @app.post("/availability", response_model=AvailabilityResponse)
